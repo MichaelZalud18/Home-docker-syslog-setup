@@ -1,0 +1,37 @@
+#vi /etc/syslog-ng/syslog-ng.conf 
+
+@version: 3.26
+@include "scl.conf"
+source s_udp514 {
+	network (
+		transport("udp")
+		port(514)
+		flags(no-parse)
+	);
+};
+#filter????????????????
+parser p_tplink {
+    csv-parser(
+        columns("tplink.numberthingy", "tplink.timestamp")
+        flags(escape-double-char,strip-whitespace)
+        delimiters(", ")
+        quote-pairs('<>()')
+    );
+};
+parser p_ubnt {
+    csv-parser(
+        columns("ubnt.somtheing", "ubnt.odertang")
+        flags(escape-double-char,strip-whitespace)
+        delimiters(", ")
+        quote-pairs('""[]')
+    );
+};
+destination d_udp514 {
+	file("/splunk/udp514.log" template("$MSG"));
+;
+log {
+	source(s_udp514);
+	parser(p_tplink);
+	parser(p_ubnt);
+	destination(d_udp514);
+};
