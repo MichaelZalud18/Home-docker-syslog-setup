@@ -1,0 +1,118 @@
+#################################################
+#The original guidance came from this website:
+#https://splunk.paloaltonetworks.com/universal-forwarder.html
+#There were quite a few corrections that had to be made (including typos)
+####################Host#########################
+
+sudo docker volume create --name log-store
+#creates the log-store volume which allows the syslog server to write to a directory that the forwarder can read from
+#this would actually be created automatically when a docker run uses the "-v"
+
+sudo docker run -it -p 514:514/udp -p 601:601 -d --name syslog-ng -v log-store:/splunk balabit/syslog-ng:latest
+#creates a syslog server and claims the external ports of 514 and 601 on the host machine for receiving data
+
+sudo docker run -it --name splunk-docker-servant -p 8000:8000 -p 9998:9998 -e "SPLUNK_PASSWORD=toortoortoor" -e "SPLUNK_START_ARGS=--accept-license" splunk/splunk:latest
+#creates the splunk server with port 8000 being the access port for the web gui of the splunk instance and port 9998 being the receiving port for data from the forwarder
+
+sudo docker run -it -p 9997:9997 -e "SPLUNK_START_ARGS=--accept-license" -e "SPLUNK_PASSWORD=toortoortoor" -d --name uf -v log-store:/splunk splunk/universalforwarder:latest
+#allows the universal forwarder access on 9997 and allows access to the volume created earlier
+
+
+sudo docker exec -it syslog-ng /bin/bash
+
+####################syslog-ng####################
+
+apt-get install vim
+#allows you to edit files with vi
+
+apt-get install net-tools
+#allows you do use commands like ip addr (not required)
+
+vi /etc/syslog-ng/syslog-ng.conf 
+#edit the syslog-ng configuration file
+
+/etc/init.d/syslog-ng stop
+#stop the service
+
+#####
+#@version: 3.26
+#@include "scl.conf"
+#source s_udp514 {
+#	network (
+#		transport("udp")
+#		port(514)
+#		flags(no-parse)
+#	);
+#};
+#destination d_udp514 {
+#	file("/splunk/udp514.log" template("$MSG"));
+#;
+#log {
+#	source(s_udp514);
+#	destination(d_udp514);
+#};
+#####
+
+/etc/init.d/syslog-ng start
+#start the service
+#this should give you a pretty thorough debugger
+#hopefully this will help with errors
+
+exit
+
+####################Host#########################
+
+sudo docker container start syslog-ng
+#if there are any errors in your config file this start command should show a thorough debug NOTE: restart does NOT show it
+
+sudo docker exec -it uf /bin/bash
+#enters the forwarder to modify configurations
+
+####################uf###########################
+
+sudo vi /opt/splunkforwarder/etc/system/local/inputs.conf
+#edit this file to look like this
+
+#####
+#[monitor:///splunk/udp514.log]
+#sourcetype = pan:log
+#[splunktcp://9997]
+#disabled=0
+#####
+
+sudo vi /opt/splunkforwarder/etc/system/local/outputs.conf
+#edit the outputs to point towards the host machine IP with the external ports of the main splunk instance
+
+#####
+#[tcpout]
+#defaultGroup = default-autolb-group
+
+#[tcpout:default-autolb-group]
+#server = 198.162.1.120:9998
+
+#[tcpout-server://198.162.1.120:9998]
+
+#[indexAndForward]
+#index = false
+#####
+
+sudo /opt/splunkforwarder/bin/splunk restart
+#restarts the service to implement changes
+
+exit
+
+####################Host#########################
+
+sudo docker container start syslog-ng
+#if there are any errors in your config file this start command should show a thorough debug NOTE: restart does NOT show it
+
+###################splunk-docker-servant#########
+#these config changes are done through the gui
+#navigate to 198.162.1.120:8000 a.k.a host machine and splunk/nginx port
+#
+#
+#
+#################################################
+#to configure tplink devices for syslog: https://www.tp-link.com/us/support/faq/548/
+#to configure unifi devices for syslog: https://help.ubnt.com/hc/en-us/articles/204975904-EdgeRouter-Remote-Syslog-Server-for-System-Logs
+##
