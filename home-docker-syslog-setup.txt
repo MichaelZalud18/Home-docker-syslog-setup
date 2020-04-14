@@ -4,19 +4,21 @@
 #There were quite a few corrections that had to be made (including typos)
 ####################Host#########################
 
+sudo timedatectl list-timezones
+sudo timedatectl set-timezone Pacific/Honolulu
+
 sudo docker volume create --name log-store
 #creates the log-store volume which allows the syslog server to write to a directory that the forwarder can read from
 #this would actually be created automatically when a docker run uses the "-v"
 
-sudo docker run -it -p 514:514/udp -p 601:601 -d --name syslog-ng -v log-store:/splunk balabit/syslog-ng:latest
+sudo docker run -it -p 514:514/udp -p 601:601 -d --name syslog-ng -v log-store:/splunk -v /etc/localtime:/etc/localtime -v /etc/timezone:/etc/timezone balabit/syslog-ng:latest
 #creates a syslog server and claims the external ports of 514 and 601 on the host machine for receiving data
 
-sudo docker run -it --name splunk-docker-servant -p 8000:8000 -p 9998:9998 -e "SPLUNK_PASSWORD=toortoortoor" -e "SPLUNK_START_ARGS=--accept-license" splunk/splunk:latest
+sudo docker run -it --name splunk-docker-servant -p 8000:8000 -p 9998:9998 -e "SPLUNK_PASSWORD=toortoortoor" -e "SPLUNK_START_ARGS=--accept-license" -v /etc/localtime:/etc/localtime -v /etc/timezone:/etc/timezone splunk/splunk:latest
 #creates the splunk server with port 8000 being the access port for the web gui of the splunk instance and port 9998 being the receiving port for data from the forwarder
 
-sudo docker run -it -p 9997:9997 -e "SPLUNK_START_ARGS=--accept-license" -e "SPLUNK_PASSWORD=toortoortoor" -d --name uf -v log-store:/splunk splunk/universalforwarder:latest
+sudo docker run -it -p 9997:9997 -e "SPLUNK_START_ARGS=--accept-license" -e "SPLUNK_PASSWORD=toortoortoor" -d --name uf -v /etc/localtime:/etc/localtime -v /etc/timezone:/etc/timezone -v log-store:/splunk splunk/universalforwarder:latest
 #allows the universal forwarder access on 9997 and allows access to the volume created earlier
-
 
 sudo docker exec -it syslog-ng /bin/bash
 
