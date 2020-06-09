@@ -117,4 +117,10 @@ sudo docker container start syslog-ng
 #################################################
 #to configure tplink devices for syslog: https://www.tp-link.com/us/support/faq/548/
 #to configure unifi devices for syslog: https://help.ubnt.com/hc/en-us/articles/204975904-EdgeRouter-Remote-Syslog-Server-for-System-Logs
-##
+###configure
+###set system syslog host 192.168.1.514 facility all level alert
+###or delete system syslog host 192.168.1.514 facility all level alert
+###commit ; save
+#
+#
+##################################################
